@@ -1,11 +1,10 @@
 package net.minestom.jam;
 
+import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
-import net.minestom.server.instance.Instance;
-import net.minestom.server.instance.block.Block;
 
 public class Main {
     public static void main(String[] args) {
@@ -13,13 +12,10 @@ public class Main {
 
         MinecraftServer minecraftServer = MinecraftServer.init();
 
-        Instance instance = MinecraftServer.process().instance().createInstanceContainer();
-        instance.setGenerator(unit -> unit.modifier().fillHeight(0, 40, Block.STONE));
-
         MinecraftServer.process().eventHandler().addListener(AsyncPlayerConfigurationEvent.class, event -> {
             final Player player = event.getPlayer();
 
-            event.setSpawningInstance(instance);
+            event.setSpawningInstance(Lobby.INSTANCE);
             player.setRespawnPoint(new Pos(0, 40, 0));
         });
 
