@@ -1,5 +1,6 @@
 package net.minestom.jam;
 
+import net.minestom.jam.instance.BlockHandlers;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.coordinate.Pos;
@@ -11,6 +12,8 @@ public class Main {
         MinecraftServer.init();
 
         MinecraftServer minecraftServer = MinecraftServer.init();
+
+        MinecraftServer.getBlockManager().registerHandler(BlockHandlers.Sign.KEY, BlockHandlers.Sign::new);
 
         MinecraftServer.process().eventHandler().addListener(AsyncPlayerConfigurationEvent.class, event -> {
             final Player player = event.getPlayer();
