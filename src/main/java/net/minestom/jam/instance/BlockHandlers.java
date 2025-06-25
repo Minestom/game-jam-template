@@ -9,8 +9,16 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Block handlers for signs, hanging signs, player heads, and banners.
+ * <br>
+ * These don't handle any logic; they just let the server know which tags need to be sent to the client.
+ */
 public final class BlockHandlers {
 
+    /**
+     * Registers every handler to a given manager. This should probably be {@code MinecraftServer.getBlockManager()}.
+     */
     public static void register(@NotNull BlockManager manager) {
         manager.registerHandler(Sign.KEY, Sign::new);
         manager.registerHandler(HangingSign.KEY, HangingSign::new);

@@ -3,7 +3,6 @@ package net.minestom.jam;
 import net.minestom.jam.instance.BlockHandlers;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
-import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 
@@ -21,7 +20,7 @@ public class Main {
             final Player player = event.getPlayer();
 
             event.setSpawningInstance(Lobby.INSTANCE);
-            player.setRespawnPoint(new Pos(-5, -60, -5));
+            player.setRespawnPoint(Lobby.SPAWN_POINT);
         });
 
         minecraftServer.start("0.0.0.0", 25565);

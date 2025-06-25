@@ -1,6 +1,7 @@
 package net.minestom.jam.instance;
 
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.instance.AddEntityToInstanceEvent;
 import net.minestom.server.instance.Instance;
@@ -9,7 +10,15 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 
+/**
+ * The lobby world. Loads an anvil world from the path {@code ./lobby}.
+ */
 public final class Lobby {
+
+    /**
+     * The spawn point in the instance. Make sure to change this when changing the world!
+     */
+    public static final Pos SPAWN_POINT = new Pos(-5, -60, -5, 0, 0);
 
     public static final Instance INSTANCE = createLobbyInstance();
 
