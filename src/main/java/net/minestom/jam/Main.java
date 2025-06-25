@@ -13,13 +13,15 @@ public class Main {
 
         MinecraftServer minecraftServer = MinecraftServer.init();
 
-        MinecraftServer.getBlockManager().registerHandler(BlockHandlers.Sign.KEY, BlockHandlers.Sign::new);
+        var process = MinecraftServer.process();
+
+        BlockHandlers.register(process.block());
 
         MinecraftServer.process().eventHandler().addListener(AsyncPlayerConfigurationEvent.class, event -> {
             final Player player = event.getPlayer();
 
             event.setSpawningInstance(Lobby.INSTANCE);
-            player.setRespawnPoint(new Pos(0, 40, 0));
+            player.setRespawnPoint(new Pos(-5, -60, -5));
         });
 
         minecraftServer.start("0.0.0.0", 25565);
