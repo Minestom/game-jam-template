@@ -8,8 +8,6 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 
 public class Main {
     public static void main(String[] args) {
-        MinecraftServer.init();
-
         MinecraftServer minecraftServer = MinecraftServer.init();
 
         var process = MinecraftServer.process();
