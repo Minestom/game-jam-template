@@ -17,7 +17,8 @@ import java.util.List;
 public final class BlockHandlers {
 
     /**
-     * Registers every handler to a given manager. This should probably be {@code MinecraftServer.getBlockManager()}.
+     * Registers every handler to a given block manager.
+     * This should probably be {@code MinecraftServer.getBlockManager()}.
      */
     public static void register(@NotNull BlockManager manager) {
         manager.registerHandler(Sign.KEY, Sign::new);
