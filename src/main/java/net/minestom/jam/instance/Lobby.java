@@ -18,7 +18,7 @@ public final class Lobby {
     /**
      * The spawn point in the instance. Make sure to change this when changing the world!
      */
-    public static final Pos SPAWN_POINT = new Pos(-5, -60, -5, 0, 0);
+    public static final Pos SPAWN_POINT = new Pos(0.5, 67, 0.5, 0, 0);
 
     public static final Instance INSTANCE = createLobbyInstance();
 
