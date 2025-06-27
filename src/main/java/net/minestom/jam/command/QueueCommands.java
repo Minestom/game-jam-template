@@ -3,12 +3,15 @@ package net.minestom.jam.command;
 import net.minestom.jam.QueueManager;
 import net.minestom.server.command.CommandManager;
 import net.minestom.server.command.builder.Command;
+import net.minestom.server.command.builder.arguments.Argument;
 import net.minestom.server.command.builder.arguments.ArgumentLoop;
 import net.minestom.server.command.builder.arguments.ArgumentType;
 import net.minestom.server.command.builder.condition.Conditions;
+import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.utils.entity.EntityFinder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -28,24 +31,28 @@ public final class QueueCommands {
                 new Queue(),
                 new Party(),
                 new Invite(),
-                new Leave()
+                new Leave(),
+                new Accept()
         );
     }
 
-    private static final ArgumentLoop<EntityFinder> PLAYERS = ArgumentType.Loop(
-            "players",
-            ArgumentType.Entity("player")
-                    .onlyPlayers(true)
-                    .singleEntity(true)
-    );
+    private static final Argument<EntityFinder> PLAYER = ArgumentType.Entity("player").onlyPlayers(true).singleEntity(true);
+
+    private static final ArgumentLoop<EntityFinder> PLAYERS = ArgumentType.Loop("players", PLAYER);
+
+    private static @Nullable Player coalescePlayer(@NotNull Player player, @NotNull EntityFinder finder) {
+        List<Entity> found = finder.find(player);
+
+        return found.isEmpty() ? null : (Player) found.getFirst();
+    }
 
     private static Set<Player> coalescePlayers(@NotNull Player player, @NotNull List<EntityFinder> finders) {
         Set<Player> players = new HashSet<>();
 
         for (var finder : finders) {
-            for (var invited : finder.find(player)) {
-                players.add((Player) invited);
-            }
+            @Nullable Player invited = coalescePlayer(player, finder);
+
+            if (invited != null) players.add(invited);
         }
 
         return players;
@@ -97,6 +104,8 @@ public final class QueueCommands {
 
             setCondition(Conditions::playerOnly);
 
+            // TODO: Error in default executor
+
             addSyntax((sender, context) -> {
                 final Player player = (Player) sender;
 
@@ -105,6 +114,9 @@ public final class QueueCommands {
         }
     }
 
+    /**
+     * Leaves the current queue, if possible.
+     */
     public static final class Leave extends Command {
         public Leave() {
             super("leave", "dequeue");
@@ -116,6 +128,25 @@ public final class QueueCommands {
 
                 QueueManager.get().dequeueWithMessages(player);
             });
+        }
+    }
+
+    /**
+     * Accepts a player's invite to another queue.
+     */
+    public static final class Accept extends Command {
+        public Accept() {
+            super("accept");
+
+            setCondition(Conditions::playerOnly);
+
+            // TODO: Error in default executor
+
+            addSyntax((sender, context) -> {
+                final Player player = (Player) sender;
+
+                QueueManager.get().acceptWithMessages(player, coalescePlayer(player, context.get(PLAYER)));
+            }, PLAYER);
         }
     }
 

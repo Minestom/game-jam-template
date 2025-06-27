@@ -143,6 +143,27 @@ public class QueueManager {
             Component.text(" is already in your queue!", NamedTextColor.RED)
     );
 
+    private static final Function<String, Component> HAS_NOT_INVITED = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" ", NamedTextColor.RED),
+            Component.text(username, NamedTextColor.RED),
+            Component.text(" has not invited you to their queue!", NamedTextColor.RED)
+    );
+
+    private static final Function<String, Component> INVITE_HAS_EXPIRED = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" The invite from ", NamedTextColor.RED),
+            Component.text(username, NamedTextColor.RED),
+            Component.text(" has expired!", NamedTextColor.RED)
+    );
+
+    private static final Function<String, Component> INVITER_IS_NOT_QUEUED = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" ", NamedTextColor.RED),
+            Component.text(username, NamedTextColor.RED),
+            Component.text(" is not currently in a queue!", NamedTextColor.RED)
+    );
+
     public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Audience {
         @Override
         public void sendMessage(@NotNull Component message) {
@@ -151,6 +172,10 @@ public class QueueManager {
 
                 if (found != null) found.sendMessage(message);
             }
+        }
+
+        private Component memberCount() {
+            return MEMBER_COUNT.apply(players.size());
         }
     }
 
@@ -171,12 +196,11 @@ public class QueueManager {
         final boolean success = joinPublicQueue(uuid);
 
         Queue queue = getQueue(uuid);
-        Component memberCount = MEMBER_COUNT.apply(queue.players().size());
 
         if (success) {
-            queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(memberCount));
+            queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(queue.memberCount()));
         } else {
-            player.sendMessage(ALREADY_QUEUED.append(memberCount));
+            player.sendMessage(ALREADY_QUEUED.append(queue.memberCount()));
         }
     }
 
@@ -192,9 +216,7 @@ public class QueueManager {
         final UUID uuid = player.getUuid();
         final boolean success = createPrivateQueue(uuid);
 
-        var memberCount = MEMBER_COUNT.apply(getQueue(uuid).players().size());
-
-        player.sendMessage((success ? CREATED_PRIVATE_QUEUE : ALREADY_QUEUED).append(memberCount));
+        player.sendMessage((success ? CREATED_PRIVATE_QUEUE : ALREADY_QUEUED).append(getQueue(uuid).memberCount()));
 
         return success;
     }
@@ -217,8 +239,7 @@ public class QueueManager {
             player.sendMessage(LEFT_QUEUE);
 
             // Send messages to every other player on the team
-            final Component memberCount = MEMBER_COUNT.apply(leftQueue.players().size());
-            leftQueue.sendMessage(PLAYER_LEFT_QUEUE.apply(player.getUsername()).append(memberCount));
+            leftQueue.sendMessage(PLAYER_LEFT_QUEUE.apply(player.getUsername()).append(leftQueue.memberCount()));
         } else {
             player.sendMessage(NOT_IN_QUEUE);
         }
@@ -245,8 +266,7 @@ public class QueueManager {
             return false;
         }
 
-        int queueSize = queue.players().size();
-        inviter.sendMessage(INVITED_PLAYERS.apply(invitees.size()).append(MEMBER_COUNT.apply(queueSize)));
+        inviter.sendMessage(INVITED_PLAYERS.apply(invitees.size()).append(queue.memberCount()));
 
         for (var invitee : invitees) {
             sendInvite(inviter, invitee, queue);
@@ -269,7 +289,7 @@ public class QueueManager {
         var key = Pair.of(inviter.getUuid(), invitee.getUuid());
         long lastInvite = invites.getLong(key);
 
-        if (lastInvite == 0 || currentTime - lastInvite > INVITE_EXPIRE_AFTER_MS) {
+        if (currentTime - lastInvite > INVITE_EXPIRE_AFTER_MS) {
             String name = inviter.getUsername();
 
             invitee.sendMessage((queue.isPrivate ? INVITED_PRIVATE_QUEUE : INVITED_PUBLIC_QUEUE).apply(name));
@@ -277,11 +297,38 @@ public class QueueManager {
 
             invites.put(key, currentTime);
             return true;
-        } else {
+        } else { // TODO: Just refresh the invite?
             inviter.sendMessage(ALREADY_INVITED.apply(invitee.getUsername()));
             return false;
         }
     }
+
+    public boolean acceptWithMessages(@NotNull Player player, @NotNull Player allegedInviter) {
+        var pair = Pair.of(allegedInviter.getUuid(), player.getUuid());
+        long lastInvite = invites.getLong(pair);
+
+        if (lastInvite == 0) {
+            player.sendMessage(HAS_NOT_INVITED.apply(allegedInviter.getUsername()));
+        } else if (System.currentTimeMillis() - lastInvite > INVITE_EXPIRE_AFTER_MS) {
+            player.sendMessage(INVITE_HAS_EXPIRED.apply(allegedInviter.getUsername()));
+        } else if (isQueued(player.getUuid())) {
+            player.sendMessage(ALREADY_QUEUED); // TODO: Click again to transfer?
+        } else if (!isQueued(allegedInviter.getUuid())) {
+            player.sendMessage(INVITER_IS_NOT_QUEUED.apply(allegedInviter.getUsername()));
+        } else {
+            invites.removeLong(pair);
+
+            Queue queue = queueMembership.get(allegedInviter.getUuid());
+
+            addToQueue(queue, player.getUuid());
+            queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(queue.memberCount()));
+
+            return true;
+        }
+
+        return false;
+    }
+
 
     /***
      * Returns whether or not the given player is currently queued.
