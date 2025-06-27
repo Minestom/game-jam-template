@@ -1,0 +1,338 @@
+package net.minestom.jam;
+
+import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.minestom.server.MinecraftServer;
+import net.minestom.server.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+
+/**
+ * The queue system consists of two types of queues: public queues and private queues.
+ * <br>
+ * Public queues are joined automatically when a player tries to queue with {@code /queue}. If there doesn't exist one,
+ * it will be created. Private queues ("parties") can never be joined automatically, and are created with {@code
+ * /party}. Both queues allow {@code /invite <username(s)>}, where the player can invite any number of users.
+ */
+public class QueueManager {
+
+    /**
+     * The maximum size of queues.
+     */
+    public static final int MAX_SIZE = 2;
+
+    /**
+     * The number of milliseconds after which invites expire.
+     */
+    public static final long INVITE_EXPIRE_AFTER_MS = 60_000;
+
+    private static final QueueManager INSTANCE = new QueueManager();
+
+    public static @NotNull QueueManager get() {
+        return INSTANCE;
+    }
+
+    private static final Component ALREADY_QUEUED = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You are already in a queue! Leave it with /leave!", NamedTextColor.RED)
+    );
+
+    private static final Component CREATED_PRIVATE_QUEUE = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
+            Component.text(" You created a new ", NamedTextColor.GRAY),
+            Component.text("private", NamedTextColor.DARK_PURPLE),
+            Component.text(" queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Component MUST_BE_IN_A_QUEUE_TO_INVITE = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You must be in a queue to invite players!", NamedTextColor.RED)
+    );
+
+    private static final Component PLAYERS_SUFFIX_PLURAL =
+            Component.text(" players!", NamedTextColor.GRAY);
+
+    private static final Component PLAYERS_SUFFIX_SINGULAR =
+            Component.text(" player!", NamedTextColor.GRAY);
+
+    private static final IntFunction<Component> INVITED_PLAYERS = players -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
+            Component.text(" Invited ", NamedTextColor.GRAY),
+            Component.text(players, NamedTextColor.WHITE),
+            players == 1 ? PLAYERS_SUFFIX_SINGULAR : PLAYERS_SUFFIX_PLURAL
+    );
+
+    private static final IntFunction<Component> MEMBER_COUNT = count -> Component.textOfChildren(
+            Component.text(" (", NamedTextColor.GRAY),
+            Component.text(count, NamedTextColor.GRAY),
+            Component.text("/" + QueueManager.MAX_SIZE + ")", NamedTextColor.GRAY)
+    );
+
+    private static final Component NOT_IN_QUEUE = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You are not in a queue!", NamedTextColor.RED)
+    );
+
+    private static final Component LEFT_QUEUE = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
+            Component.text(" You left the queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Function<String, Component> PLAYER_JOINED_QUEUE = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.YELLOW, TextDecoration.BOLD),
+            Component.text(" " + username, NamedTextColor.WHITE),
+            Component.text(" joined the queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Function<String, Component> PLAYER_LEFT_QUEUE = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.YELLOW, TextDecoration.BOLD),
+            Component.text(" " + username, NamedTextColor.WHITE),
+            Component.text(" left the queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Function<String, Component> INVITED_PUBLIC_QUEUE = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.YELLOW, TextDecoration.BOLD),
+            Component.text(" " + username, NamedTextColor.WHITE),
+            Component.text(" has invited you to join their ", NamedTextColor.GRAY),
+            Component.text("public", NamedTextColor.LIGHT_PURPLE),
+            Component.text(" queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Function<String, Component> INVITED_PRIVATE_QUEUE = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.YELLOW, TextDecoration.BOLD),
+            Component.text(" " + username, NamedTextColor.WHITE),
+            Component.text(" has invited you to join their ", NamedTextColor.GRAY),
+            Component.text("private", NamedTextColor.DARK_PURPLE),
+            Component.text(" queue!", NamedTextColor.GRAY)
+    );
+
+    private static final Function<String, Component> CLICK_TO_ACCEPT_INVITE = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.YELLOW, TextDecoration.BOLD),
+            Component.text(" Click here or run ", NamedTextColor.GRAY),
+            Component.text("/accept " + username, NamedTextColor.WHITE),
+            Component.text(" to accept!", NamedTextColor.GRAY)
+    ).clickEvent(ClickEvent.runCommand("/accept " + username));
+
+    private static final Function<String, Component> ALREADY_INVITED = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You have already invited ", NamedTextColor.RED),
+            Component.text(username, NamedTextColor.RED),
+            Component.text(" to your queue!", NamedTextColor.RED)
+    );
+
+    private static final Component CANNOT_INVITE_YOURSELF = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You cannot invite yourself!", NamedTextColor.RED)
+    );
+
+    private static final Function<String, Component> ALREADY_IN_PARTY = username -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" ", NamedTextColor.RED),
+            Component.text(username, NamedTextColor.RED),
+            Component.text(" is already in your queue!", NamedTextColor.RED)
+    );
+
+    public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Audience {
+        @Override
+        public void sendMessage(@NotNull Component message) {
+            for (UUID member : players()) {
+                Player found = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(member);
+
+                if (found != null) found.sendMessage(message);
+            }
+        }
+    }
+
+    private final List<Queue> privateQueues, publicQueues;
+    private final Map<UUID, Queue> queueMembership;
+    private final Object2LongMap<Pair<UUID, UUID>> invites;
+
+    public QueueManager() {
+        this.privateQueues = new ArrayList<>();
+        this.publicQueues = new ArrayList<>();
+        this.queueMembership = new HashMap<>();
+        this.invites = new Object2LongOpenHashMap<>();
+    }
+
+
+    public void joinPublicQueueWithMessages(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+        final boolean success = joinPublicQueue(uuid);
+
+        Queue queue = getQueue(uuid);
+        Component memberCount = MEMBER_COUNT.apply(queue.players().size());
+
+        if (success) {
+            queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(memberCount));
+        } else {
+            player.sendMessage(ALREADY_QUEUED.append(memberCount));
+        }
+    }
+
+    public boolean joinPublicQueue(@NotNull UUID uuid) {
+        if (isQueued(uuid)) return false;
+
+        addToQueue(nextPublicQueue(), uuid);
+
+        return true;
+    }
+
+    public boolean createPrivateQueueWithMessages(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+        final boolean success = createPrivateQueue(uuid);
+
+        var memberCount = MEMBER_COUNT.apply(getQueue(uuid).players().size());
+
+        player.sendMessage((success ? CREATED_PRIVATE_QUEUE : ALREADY_QUEUED).append(memberCount));
+
+        return success;
+    }
+
+    public boolean createPrivateQueue(@NotNull UUID uuid) {
+        if (isQueued(uuid)) return false;
+
+        Queue queue = createPrivateQueue();
+        addToQueue(queue, uuid);
+
+        return true;
+    }
+
+    public void dequeueWithMessages(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+        final Queue leftQueue = dequeue(uuid);
+
+        if (leftQueue != null) {
+            // Send them a message
+            player.sendMessage(LEFT_QUEUE);
+
+            // Send messages to every other player on the team
+            final Component memberCount = MEMBER_COUNT.apply(leftQueue.players().size());
+            leftQueue.sendMessage(PLAYER_LEFT_QUEUE.apply(player.getUsername()).append(memberCount));
+        } else {
+            player.sendMessage(NOT_IN_QUEUE);
+        }
+    }
+
+    public @Nullable Queue dequeue(@NotNull UUID uuid) {
+        final Queue queue = getQueue(uuid);
+
+        if (queue == null) return null;
+
+        // Remove the player internally
+        queueMembership.remove(uuid);
+        queue.players().remove(uuid);
+
+        return queue;
+    }
+
+    public boolean invitePlayers(@NotNull Player inviter, @NotNull Set<Player> invitees) {
+        final UUID uuid = inviter.getUuid();
+        final Queue queue = getQueue(uuid);
+
+        if (queue == null) {
+            inviter.sendMessage(MUST_BE_IN_A_QUEUE_TO_INVITE);
+            return false;
+        }
+
+        int queueSize = queue.players().size();
+        inviter.sendMessage(INVITED_PLAYERS.apply(invitees.size()).append(MEMBER_COUNT.apply(queueSize)));
+
+        for (var invitee : invitees) {
+            sendInvite(inviter, invitee, queue);
+        }
+
+        return true;
+    }
+
+    private boolean sendInvite(@NotNull Player inviter, @NotNull Player invitee, @NotNull Queue queue) {
+        if (inviter.getUuid().equals(invitee.getUuid())) {
+            inviter.sendMessage(CANNOT_INVITE_YOURSELF);
+            return false;
+        } else if (queue.players().contains(invitee.getUuid())) {
+            inviter.sendMessage(ALREADY_IN_PARTY.apply(invitee.getUsername()));
+            return false;
+        }
+
+        long currentTime = System.currentTimeMillis();
+
+        var key = Pair.of(inviter.getUuid(), invitee.getUuid());
+        long lastInvite = invites.getLong(key);
+
+        if (lastInvite == 0 || currentTime - lastInvite > INVITE_EXPIRE_AFTER_MS) {
+            String name = inviter.getUsername();
+
+            invitee.sendMessage((queue.isPrivate ? INVITED_PRIVATE_QUEUE : INVITED_PUBLIC_QUEUE).apply(name));
+            invitee.sendMessage(CLICK_TO_ACCEPT_INVITE.apply(name));
+
+            invites.put(key, currentTime);
+            return true;
+        } else {
+            inviter.sendMessage(ALREADY_INVITED.apply(invitee.getUsername()));
+            return false;
+        }
+    }
+
+    /***
+     * Returns whether or not the given player is currently queued.
+     */
+    public boolean isQueued(@NotNull UUID player) {
+        return queueMembership.containsKey(player);
+    }
+
+    /**
+     * Returns the queue that the player is in, or null if there does not exist one.
+     */
+    public @Nullable Queue getQueue(@NotNull UUID player) {
+        return queueMembership.get(player);
+    }
+
+    /**
+     * Gets a public queue that a player can join.
+     */
+    private @NotNull Queue nextPublicQueue() {
+        // Find a non-full queue
+        for (Queue queue : publicQueues) {
+            if (queue.players().size() < MAX_SIZE) {
+                return queue;
+            }
+        }
+
+        // Return an empty queue
+        Queue queue = new Queue(new CopyOnWriteArraySet<>(), false);
+        publicQueues.add(queue);
+        return queue;
+    }
+
+    /**
+     * Always creates a new private queue specifically for the player.
+     */
+    private @NotNull Queue createPrivateQueue() {
+        Queue queue = new Queue(new CopyOnWriteArraySet<>(), true);
+        privateQueues.add(queue);
+        return queue;
+    }
+
+    /***
+     * Attempts to add a player to a queue.
+     */
+    private void addToQueue(@NotNull Queue queue, @NotNull UUID player) {
+        queue.players().add(player);
+        queueMembership.put(player, queue);
+
+        if (queue.players().size() >= MAX_SIZE) {
+            // TODO: Start countdown
+        }
+    }
+
+}
