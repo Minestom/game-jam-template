@@ -25,7 +25,7 @@ public class Main {
         });
 
         events.addListener(PlayerDisconnectEvent.class, event -> {
-            QueueManager.get().dequeue(event.getPlayer().getUuid());
+            QueueManager.get().dequeue(event.getPlayer());
         });
 
         minecraftServer.start("0.0.0.0", 25565);

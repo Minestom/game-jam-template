@@ -231,21 +231,14 @@ public class QueueManager {
     }
 
     public void dequeueWithMessages(@NotNull Player player) {
-        final UUID uuid = player.getUuid();
-        final Queue leftQueue = dequeue(uuid);
+        final Queue leftQueue = dequeue(player);
 
-        if (leftQueue != null) {
-            // Send them a message
-            player.sendMessage(LEFT_QUEUE);
-
-            // Send messages to every other player on the team
-            leftQueue.sendMessage(PLAYER_LEFT_QUEUE.apply(player.getUsername()).append(leftQueue.memberCount()));
-        } else {
-            player.sendMessage(NOT_IN_QUEUE);
-        }
+        player.sendMessage(leftQueue != null ? LEFT_QUEUE : NOT_IN_QUEUE);
     }
 
-    public @Nullable Queue dequeue(@NotNull UUID uuid) {
+    public @Nullable Queue dequeue(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+
         final Queue queue = getQueue(uuid);
 
         if (queue == null) return null;
@@ -253,6 +246,9 @@ public class QueueManager {
         // Remove the player internally
         queueMembership.remove(uuid);
         queue.players().remove(uuid);
+
+        // Send messages to every other player on the team
+        queue.sendMessage(PLAYER_LEFT_QUEUE.apply(player.getUsername()).append(queue.memberCount()));
 
         return queue;
     }
@@ -328,7 +324,6 @@ public class QueueManager {
 
         return false;
     }
-
 
     /***
      * Returns whether or not the given player is currently queued.
