@@ -1,6 +1,5 @@
 package net.minestom.jam;
 
-import net.minestom.jam.command.QueueCommands;
 import net.minestom.jam.instance.BlockHandlers;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
@@ -13,7 +12,10 @@ public class Main {
         MinecraftServer minecraftServer = MinecraftServer.init();
 
         BlockHandlers.register(MinecraftServer.getBlockManager());
-        QueueCommands.register(MinecraftServer.getCommandManager());
+
+        Queue.Manager queues = new Queue.Manager();
+
+        Queue.Commands.register(queues, MinecraftServer.getCommandManager());
 
         var events = MinecraftServer.getGlobalEventHandler();
 
@@ -25,7 +27,7 @@ public class Main {
         });
 
         events.addListener(PlayerDisconnectEvent.class, event -> {
-            QueueManager.get().dequeue(event.getPlayer());
+            queues.dequeue(event.getPlayer());
         });
 
         minecraftServer.start("0.0.0.0", 25565);
