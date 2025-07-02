@@ -6,7 +6,7 @@ It is **not** mandatory to use this template - it's just here to help teams get 
 
 What **is** mandatory for your submission is:
 - The submission must use Minestom
-- You must submit a JAR that runs on its own (we recommend a fat/shadow jar to bundle dependencies) as well as relevant files (e.g. world files)
+- You must submit a JAR that runs on its own (we recommend a fat/shadow jar to bundle dependencies) as well as a ZIP file containing relevant files (e.g. world files)
 
 This template uses Minestom and includes the shadowJar plugin (run with `./gradlew shadowJar`) so these requirements are
 already fulfilled.
