@@ -28,7 +28,7 @@ public final class Lobby {
         );
 
         instance.setTimeRate(0);
-        instance.setTime(18000); // Midnight
+        instance.setTime(6000); // Noon
 
         instance.eventNode().addListener(AddEntityToInstanceEvent.class, event -> {
             if (!(event.getEntity() instanceof Player player)) return;

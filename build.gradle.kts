@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom-snapshots:b39badc77b")
+    implementation("net.minestom:minestom:2025.07.11-1.21.7")
 }
 
 tasks.withType<JavaCompile> {
