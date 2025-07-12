@@ -17,12 +17,15 @@ import net.minestom.server.command.builder.arguments.ArgumentType;
 import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.Player;
+import net.minestom.server.timer.ExecutionType;
+import net.minestom.server.timer.TaskSchedule;
 import net.minestom.server.utils.entity.EntityFinder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -37,6 +40,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
      * The number of milliseconds after which invites expire.
      */
     public static final long INVITE_EXPIRE_AFTER_MS = 60_000;
+
+    /**
+     * The number of seconds it takes for a game to start after a queue is full.
+     */
+    public static final int GAME_START_DELAY = 3;
 
     /**
      * The queue system consists of two types of queues: public queues and private queues.
@@ -240,9 +248,33 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
             queue.players().add(player);
             queueMembership.put(player, queue);
 
-            if (queue.players().size() >= MAX_SIZE) {
-                // TODO: Start countdown
-            }
+            if (queue.players().size() < MAX_SIZE) return;
+
+            AtomicInteger counter = new AtomicInteger(GAME_START_DELAY + 1); // one second before actually starting
+            MinecraftServer.getSchedulerManager().submitTask(() -> {
+                if (queue.players().size() < MAX_SIZE) return TaskSchedule.stop();
+
+                int time = counter.getAndDecrement();
+                if (time > GAME_START_DELAY) return TaskSchedule.seconds(1);
+
+                if (time > 0) {
+                    queue.sendMessage(GAME_STARTING_IN.apply(time));
+                    return TaskSchedule.seconds(1);
+                }
+
+                // Start a new game
+                queue.sendMessage(STARTING_GAME);
+                new Game(queue.players());
+
+                // Remove the queue
+                queue.players().clear(); // Clear queue just in case
+                (queue.isPrivate ? privateQueues : publicQueues).remove(queue);
+                for (UUID member : queue.players()) {
+                    queueMembership.remove(member);
+                }
+
+                return TaskSchedule.stop();
+            }, ExecutionType.TICK_END);
         }
     }
 
@@ -513,5 +545,17 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
             Component.text(" ", NamedTextColor.RED),
             Component.text(username, NamedTextColor.RED),
             Component.text(" is not currently in a queue!", NamedTextColor.RED)
+    );
+
+    private static final IntFunction<Component> GAME_STARTING_IN = seconds -> Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
+            Component.text(" Game starting in ", NamedTextColor.GRAY),
+            Component.text(seconds, NamedTextColor.WHITE),
+            Component.text(seconds != 1 ? " seconds!" : " second!", NamedTextColor.GRAY)
+    );
+
+    private static final Component STARTING_GAME = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
+            Component.text(" Starting game!", NamedTextColor.GRAY)
     );
 }

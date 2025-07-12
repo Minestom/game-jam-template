@@ -27,7 +27,12 @@ public class Main {
         });
 
         events.addListener(PlayerDisconnectEvent.class, event -> {
-            queues.dequeue(event.getPlayer());
+            final Player player = event.getPlayer();
+
+            queues.dequeue(player);
+
+            Game game = player.getTag(Game.GAME);
+            if (game != null) game.onDisconnect(player);
         });
 
         minecraftServer.start("0.0.0.0", 25565);
