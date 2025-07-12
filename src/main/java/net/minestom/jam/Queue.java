@@ -3,12 +3,12 @@ package net.minestom.jam;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.command.CommandManager;
 import net.minestom.server.command.builder.Command;
 import net.minestom.server.command.builder.arguments.Argument;
@@ -22,6 +22,7 @@ import net.minestom.server.timer.TaskSchedule;
 import net.minestom.server.utils.entity.EntityFinder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
-public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Audience {
+public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements PacketGroupingAudience {
 
     /**
      * The maximum size of queues before a game starts.
@@ -441,12 +442,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
     }
 
     @Override
-    public void sendMessage(@NotNull Component message) {
-        for (UUID member : players()) {
-            Player found = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(member);
-
-            if (found != null) found.sendMessage(message);
-        }
+    public @NotNull @Unmodifiable Collection<@NotNull Player> getPlayers() {
+        return players.stream()
+                .map(MinecraftServer.getConnectionManager()::getOnlinePlayerByUuid)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private Component memberCount() {
