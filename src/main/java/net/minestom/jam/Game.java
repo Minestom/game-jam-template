@@ -1,24 +1,25 @@
 package net.minestom.jam;
 
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.anvil.AnvilLoader;
 import net.minestom.server.tag.Tag;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.UnmodifiableView;
 
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-public class Game implements Audience {
+public class Game implements PacketGroupingAudience {
 
     /**
      * The spawn point in the instance. Make sure to change this when changing the world!
@@ -63,13 +64,6 @@ public class Game implements Audience {
         GAMES.add(this);
     }
 
-    @Override
-    public void sendMessage(@NotNull Component message) {
-        for (Player player : players) {
-            player.sendMessage(message);
-        }
-    }
-
     public void onGameEnd() {
         ending.set(true);
 
@@ -100,4 +94,8 @@ public class Game implements Audience {
             Component.text(" has left the game!", NamedTextColor.GRAY)
     );
 
+    @Override
+    public @NotNull @UnmodifiableView Collection<@NotNull Player> getPlayers() {
+        return Collections.unmodifiableCollection(players);
+    }
 }
