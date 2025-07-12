@@ -12,8 +12,9 @@ This template uses Minestom and includes the shadowJar plugin (run with `./gradl
 already fulfilled.
 
 The template currently implements:
-- Anvil world loading in `/lobby`
+- Anvil world loading for the lobby (in `./lobby/`) and for the game world (in `./game/`)
 - Block handlers that send the correct NBT to the client
 - A queue system
+- A game loop
 
 You can easily remove these if they're not desired; for example, to remove the queue, just delete Queue.java (and fix the few related compiler errors).
