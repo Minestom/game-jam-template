@@ -6,10 +6,16 @@ import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.PlayerDisconnectEvent;
+import net.minestom.server.extras.velocity.VelocityProxy;
 
 public class Main {
     public static void main(String[] args) {
         MinecraftServer minecraftServer = MinecraftServer.init();
+
+        String secret = System.getenv("VELOCITY_SECRET");
+        if (secret != null) {
+            VelocityProxy.enable(secret);
+        }
 
         BlockHandlers.register(MinecraftServer.getBlockManager());
 
