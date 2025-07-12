@@ -169,7 +169,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
                 invites.put(key, currentTime);
                 return true;
-            } else { // TODO: Just refresh the invite?
+            } else {
                 inviter.sendMessage(ALREADY_INVITED.apply(invitee.getUsername()));
                 return false;
             }
@@ -184,7 +184,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
             } else if (System.currentTimeMillis() - lastInvite > INVITE_EXPIRE_AFTER_MS) {
                 player.sendMessage(INVITE_HAS_EXPIRED.apply(allegedInviter.getUsername()));
             } else if (isQueued(player.getUuid())) {
-                player.sendMessage(ALREADY_QUEUED); // TODO: Click again to transfer?
+                player.sendMessage(ALREADY_QUEUED);
             } else if (!isQueued(allegedInviter.getUuid())) {
                 player.sendMessage(INVITER_IS_NOT_QUEUED.apply(allegedInviter.getUsername()));
             } else {
@@ -371,7 +371,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
                 setCondition(Conditions::playerOnly);
 
-                // TODO: Error in default executor
+                setDefaultExecutor((sender, context) -> sender.sendMessage(INVITE_SYNTAX));
 
                 addSyntax((sender, context) -> {
                     final Player player = (Player) sender;
@@ -417,7 +417,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
                 setCondition(Conditions::playerOnly);
 
-                // TODO: Error in default executor
+                setDefaultExecutor((sender, context) -> sender.sendMessage(ACCEPT_SYNTAX));
 
                 addSyntax((sender, context) -> {
                     final Player player = (Player) sender;
@@ -427,7 +427,14 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
                         return;
                     }
 
-                    manager.acceptWithMessages(player, coalescePlayer(player, context.get(PLAYER)));
+                    Player invited = coalescePlayer(player, context.get(PLAYER));
+
+                    if (invited == null) {
+                        player.sendMessage(UNKNOWN_PLAYER);
+                        return;
+                    }
+
+                    manager.acceptWithMessages(player, invited);
                 }, PLAYER);
             }
         }
@@ -581,6 +588,21 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
     private static final Component CANNOT_QUEUE_IN_GAME = Component.textOfChildren(
             Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
-            Component.text(" You cannot run any queue commands as you are in a game!", NamedTextColor.GRAY)
+            Component.text(" You cannot run any queue commands as you are in a game!", NamedTextColor.RED)
+    );
+
+    private static final Component UNKNOWN_PLAYER = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" Unknown player!", NamedTextColor.RED)
+    );
+
+    private static final Component ACCEPT_SYNTAX = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" /accept syntax: /accept <player>", NamedTextColor.RED)
+    );
+
+    private static final Component INVITE_SYNTAX = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" /invite syntax: /invite <player(s)>", NamedTextColor.RED)
     );
 }
