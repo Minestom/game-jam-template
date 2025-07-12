@@ -267,11 +267,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
                 new Game(queue.players());
 
                 // Remove the queue
-                queue.players().clear(); // Clear queue just in case
                 (queue.isPrivate ? privateQueues : publicQueues).remove(queue);
                 for (UUID member : queue.players()) {
                     queueMembership.remove(member);
                 }
+                queue.players().clear(); // Clear queue just in case
 
                 return TaskSchedule.stop();
             }, ExecutionType.TICK_END);
