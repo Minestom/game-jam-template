@@ -350,6 +350,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
                 addSyntax((sender, context) -> {
                     final Player player = (Player) sender;
 
+                    if (player.hasTag(Game.GAME)) {
+                        player.sendMessage(CANNOT_QUEUE_IN_GAME);
+                        return;
+                    }
+
                     if (manager.createPrivateQueueWithMessages(player)) {
                         manager.invitePlayers(player, coalescePlayers(player, context.get(PLAYERS)));
                     }
@@ -371,6 +376,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
                 addSyntax((sender, context) -> {
                     final Player player = (Player) sender;
 
+                    if (player.hasTag(Game.GAME)) {
+                        player.sendMessage(CANNOT_QUEUE_IN_GAME);
+                        return;
+                    }
+
                     manager.invitePlayers(player, coalescePlayers(player, context.get(PLAYERS)));
                 }, PLAYERS);
             }
@@ -387,6 +397,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
                 setDefaultExecutor((sender, context) -> {
                     final Player player = (Player) sender;
+
+                    if (player.hasTag(Game.GAME)) {
+                        player.sendMessage(CANNOT_QUEUE_IN_GAME);
+                        return;
+                    }
 
                     manager.dequeueWithMessages(player);
                 });
@@ -406,6 +421,11 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
 
                 addSyntax((sender, context) -> {
                     final Player player = (Player) sender;
+
+                    if (player.hasTag(Game.GAME)) {
+                        player.sendMessage(CANNOT_QUEUE_IN_GAME);
+                        return;
+                    }
 
                     manager.acceptWithMessages(player, coalescePlayer(player, context.get(PLAYER)));
                 }, PLAYER);
@@ -557,5 +577,10 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Au
     private static final Component STARTING_GAME = Component.textOfChildren(
             Component.text("[!]", NamedTextColor.GREEN, TextDecoration.BOLD),
             Component.text(" Starting game!", NamedTextColor.GRAY)
+    );
+
+    private static final Component CANNOT_QUEUE_IN_GAME = Component.textOfChildren(
+            Component.text("[!]", NamedTextColor.RED, TextDecoration.BOLD),
+            Component.text(" You cannot run any queue commands as you are in a game!", NamedTextColor.GRAY)
     );
 }

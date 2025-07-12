@@ -4,6 +4,7 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
@@ -13,9 +14,8 @@ import net.minestom.server.tag.Tag;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 public class Game implements Audience {
@@ -44,7 +44,8 @@ public class Game implements Audience {
     }
 
     private final InstanceContainer instance;
-    private final Set<Player> players = new HashSet<>();
+    private final List<Player> players = new ArrayList<>();
+    private final AtomicBoolean ending = new AtomicBoolean(false);
 
     public Game(@NotNull Set<UUID> players) {
         this.instance = createGameInstance();
@@ -69,10 +70,27 @@ public class Game implements Audience {
         }
     }
 
+    public void onGameEnd() {
+        ending.set(true);
+
+        for (Player player : players) {
+            player.setInstance(Lobby.INSTANCE, Lobby.SPAWN_POINT);
+            player.removeTag(GAME);
+        }
+
+        players.clear();
+        GAMES.remove(this);
+    }
+
     public void onDisconnect(@NotNull Player player) {
         players.remove(player);
 
         sendMessage(PLAYER_HAS_LEFT.apply(player.getUsername()));
+
+        // As an example, we end the game if there's one player left
+        if (players.size() == 1) {
+            onGameEnd();
+        }
     }
 
     private static final Function<String, Component> PLAYER_HAS_LEFT = username -> Component.textOfChildren(
